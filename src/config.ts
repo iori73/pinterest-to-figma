@@ -4,4 +4,4 @@
 // so board/pin data must be fetched through this proxy rather than directly.
 //
 // Example: 'https://pinterest-to-figma-proxy.your-subdomain.workers.dev'
-export const PINTEREST_PROXY_URL = 'https://REPLACE-ME.workers.dev';
+export const PINTEREST_PROXY_URL = 'https://pinterest-to-figma.iori730002204294.workers.dev';
