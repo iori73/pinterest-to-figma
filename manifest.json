@@ -1,0 +1,18 @@
+{
+  "name": "Pinterest to Figma",
+  "id": "pinterest-to-figma-plugin",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://*.workers.dev",
+      "https://i.pinimg.com",
+      "https://*.pinimg.com"
+    ],
+    "reasoning": "Figma's plugin sandbox enforces browser CORS, and Pinterest's servers don't send CORS headers, so board/pin-feed data is fetched through a small self-hosted Cloudflare Worker proxy (worker/pinterest-proxy.js, deployed under *.workers.dev) that fetches Pinterest server-to-server and adds CORS headers. Once fetched, each pin's image is downloaded directly from Pinterest's CDN (i.pinimg.com) to place it on the canvas — that call doesn't go through fetch()/CORS since it uses figma.createImageAsync()."
+  }
+}

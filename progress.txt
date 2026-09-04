@@ -1,0 +1,45 @@
+[2026-08-29] プロジェクト初期化
+- 他プラグイン（arrow-connect の esbuild 構成）を参照してテンプレート一式を作成
+- manifest.json / package.json / tsconfig.json / src(code.ts, ui.tsx, types.ts, utils/grid.ts) / scripts/build-ui.js を配置
+- UI は画像URLの改行区切り入力→グリッド配置のみ実装（Pinterestボードの直接取得は未実装）
+- 次: npm install → npm run build で動作確認、Pinterestボード/ピンURLからの画像URL抽出方法を検討
+
+[2026-08-29] ボードURL取り込み機能を実装（公開直前ドラフトまで）
+- 目的: 有料の「Pinterest Importer」(Figmats社, community/1414676079568412945) の無料版を自作するのが本プロジェクトの目的
+- curlで実際のPinterestボードページを検証し、__PWS_INITIAL_PROPS__ 内のJSON（board_id, 初期ピン一覧, bookmark）と
+  公開APIエンドポイント https://www.pinterest.com/resource/BoardFeedResource/get/ でのページネーションが
+  非ログイン状態でも動作することを確認済み（src/utils/pinterest.ts に実装）
+- UIを元プラグイン同様の「ボードリンク入力 + Download」+ Settingsチェックボックス（区間保持/支配色/フルサイズ/カルーセル/出典リンク）に刷新
+  ただし元プラグインと違い課金なし・クレジット制なし・PROバッジなしで全機能を無料開放
+- 名前は "Pinterest to Figma" とし、Pinterestロゴや元プラグインの名称・カバー画像は使わない方針（PUBLISHING.md参照）
+- npm run build / npx tsc --noEmit は通過確認済み。ただし実機のFigmaデスクトップ/ブラウザでは未検証
+  （このセッションからはFigmaアプリを起動できないため、ユーザー側でのテストが必要）
+- PUBLISHING.md にCommunity公開用の説明文・タグ・アイコン/カバー画像の仕様・公開前チェックリストをドラフトとして作成
+- 次: ユーザーが実際のFigmaで動作確認 → アイコン/カバー画像作成 → サポートリンク確定 → 公開
+
+[2026-08-30 〜 2026-09-03] 実機デバッグ3件を修正
+1. manifest.jsonが選択できない問題
+   - 原因: macOSのTCC(プライバシー)制限で、Figmaデスクトップアプリが ~/Documents 配下への
+     アクセス許可を持っていなかった（Documents/Desktop/Downloadsは保護フォルダ）
+   - ユーザーが システム設定 > プライバシーとセキュリティ > ファイルとフォルダ でFigmaに許可を付与し解決
+2. ボードURLが常に「Pinterest board URLに見えません」エラーになる問題
+   - 原因: parseBoardUrl() が `new URL()` を使っていたが、Figmaのプラグインsandbox環境では
+     WHATWG URLクラスが利用できず、コンストラクタが失敗して常にnullを返していた
+   - 対処: 正規表現による手動パースに置き換え（src/utils/pinterest.ts）
+3. 「Failed to fetch」→ 実機コンソールで判明した本質的な問題
+   - ユーザーの実際のボードが jp.pinterest.com だったため manifest の networkAccess 不足も一因だったが、
+     さらに深刻な問題として **Figmaのプラグインsandboxの fetch() はブラウザ同様CORSを強制する**ことが判明
+     （lessons.md の [2026-09-03] 訂正エントリ参照）。Pinterest側はCORSヘッダーを返さないため、
+     プラグイン単体でのPinterest直接取得は原理的に不可能だった
+   - ユーザーと相談し、Cloudflare Workers（無料枠）で自前のCORSプロキシを持つ方針を選択
+   - worker/pinterest-proxy.js を新規作成（*.pinterest.comのみ中継、CORSヘッダー付与、https以外・非pinterestホストは403）
+   - src/config.ts に PINTEREST_PROXY_URL を追加（ユーザーがデプロイ後に書き換える設計）
+   - src/utils/pinterest.ts の2箇所のfetch呼び出しをプロキシ経由に変更、カスタムヘッダーはworker側に一任
+   - manifest.json の networkAccess を *.workers.dev + i.pinimg.com/*.pinimg.com に変更（pinterest.com直接アクセスは不要に）
+   - worker本体のロジックはこのセッションからNode上でfetch handlerを直接importし、実際のPinterest board/API URLに対して
+     シミュレーション検証済み（200応答・CORS付与・非pinterest.comホストの403拒否・httpの403拒否・パラメータ欠落の400を確認）
+   - README.md にCloudflare Workersのデプロイ手順（ダッシュボードでの操作、CLI不要）を追記
+   - PUBLISHING.md を「バックエンドなし」から「自前プロキシに依存する」設計へ全面的に訂正
+     （公開後は他人のアクセスも自分のWorkerを通る＝維持責任が発生する旨を明記）
+- 次: ユーザーが実際にCloudflare Workersへデプロイ → src/config.ts のURLを書き換え → npm run build →
+  Figmaでプラグインを完全に削除して再インポート（manifest変更を確実に反映させるため）→ 実ボードで動作確認
