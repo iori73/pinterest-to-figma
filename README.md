@@ -1,5 +1,7 @@
 # Pinterest to Figma
 
+Repo: https://github.com/iori73/pinterest-to-figma
+
 Figma plugin that imports a public Pinterest board into the canvas as a
 grid of images — a free, unlimited alternative to paid board-importer
 plugins (see [`PUBLISHING.md`](./PUBLISHING.md) for why it's a distinct

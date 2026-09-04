@@ -112,8 +112,7 @@ Suggested tags: images, import, pinterest, moodboard, inspiration,
 
 **Support / contact link**
 ```
-<-- fill in: a GitHub repo issues URL, or a plain mailto: link. Do not
-    publish a placeholder — Community requires a real, working link. -->
+https://github.com/iori73/pinterest-to-figma/issues
 ```
 
 **Third-party payment toggle**: leave **off** — this plugin is fully free
@@ -158,7 +157,7 @@ step for you.
 - [ ] Manually load via **Plugins → Development → Import plugin from
       manifest…** and run it against 2-3 real boards (small, large, board
       with sections, board with carousel pins) using your deployed proxy URL
-- [ ] Replace the placeholder support link above with a real one
+- [x] Support link set to the GitHub repo's issues page (see above)
 - [ ] Add `icon.png` and cover image, wire them up in the Community publish
       dialog (not part of `manifest.json`)
 - [ ] Re-read the description above and adjust tone/wording to taste
