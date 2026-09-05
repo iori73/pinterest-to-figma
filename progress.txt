@@ -43,3 +43,38 @@
      （公開後は他人のアクセスも自分のWorkerを通る＝維持責任が発生する旨を明記）
 - 次: ユーザーが実際にCloudflare Workersへデプロイ → src/config.ts のURLを書き換え → npm run build →
   Figmaでプラグインを完全に削除して再インポート（manifest変更を確実に反映させるため）→ 実ボードで動作確認
+
+[2026-09-04 〜 2026-09-05] Cloudflare Workersデプロイ完了 + カラー分布バー機能を追加
+- ユーザーがCloudflare WorkersダッシュボードでGit連携ビルド（Build: npm run build / Deploy: npx wrangler deploy）を設定
+  → 初回は "Could not detect a directory containing static files" で失敗したが、wrangler.toml（name/main/compatibility_date）を
+    追加してpushしたところ2回目のビルドで成功。実URL https://pinterest-to-figma.iori730002204294.workers.dev を取得
+  → curlで実ボード（jp.pinterest.com）に対してエンドツーエンド確認済み（200・CORS付与・実データ取得）。src/config.ts に反映しビルド・push済み
+- ユーザー要望「ドミナントカラーを丸ではなくグラフのような横長の分布バーにしたい（Adobe Colorのような機能を参考に）」に対応
+  - Adobe Color「Extract Theme」機能をリサーチ: 5色抽出、ムードプリセットはBright/Dark/Deep/Muted の4種（Colorful/Customは未確認・誤り）
+    → 今回のユースケース（実際の画素構成を客観的に見せる）にはムードプリセットは不適切と判断し採用せず、上位5色+実際の割合(%)をそのまま表示する方針に
+  - 技術的制約: Pinterest APIは1画像につき dominant_color を1色しか返さない。実際の複数色分布を得るには画像のピクセルを解析する必要があるが、
+    i.pinimg.com は CORS ヘッダーを返さないため、Figma UIのcanvas上でクロスオリジン画像を解析することは不可（getImageDataがSecurityErrorで失敗）
+    → サーバー側（既存のCloudflare Worker）で画像バイトを取得しデコード・量子化する方式を採用
+  - Cloudflare Workers無料枠はリクエストあたりCPU時間10ms制限があるため、フルサイズ画像のJPEGデコードは非現実的と判断
+    → ユーザーに3択で確認し「小さいサムネイルで試す（失敗時は単色にフォールバック）」を選択
+  - 実装:
+    - worker/jpeg-decoder.js: OSSの jpeg-js（MIT/BSD-3 + Apache 2.0）のデコーダ部分をそのまま移植（Buffer依存を避けるため useTArray:true オプションを使用）。
+      末尾のCommonJS/windowエクスポート部分だけESM export に置き換え、それ以外はロジック変更なし（ライセンスファイルも worker/LICENSE-jpeg-js として同梱）
+    - worker/color-quantize.js: デコード済みRGBAピクセルをR/G/B各5bit（32段階）でバケット化し、頻度上位5色+各色の実割合(%)を算出
+    - worker/pinterest-proxy.js: 新たに `?colors=<pinimg.comの画像URL>` モードを追加。画像URLのサイズセグメントを "60x60" に書き換えて
+      極小サムネイルを取得 → JPEGマジックバイト確認 → デコード・量子化 → JSON返却。非JPEG・デコード失敗・非pinimg.comホストは
+      いずれもエラーレスポンス（プラグイン側でフォールバック判定に使う）
+    - src/utils/pinterest.ts: fetchColorDistribution() を追加（プロキシの ?colors= モードを叩き、失敗時は null を返す）
+    - src/code.ts: 画像作成と色分布取得を Promise.all で並列化。取得できた分布 or 失敗時は pin.dominantColor 1色100%にフォールバックし、
+      画像の下に横並び矩形（stacked bar）として描画。グリッドの行高さ計算にバー分の高さ+余白を追加し次の行と重ならないよう調整
+  - 検証（すべてこのセッション内でNode上でシミュレーション、実Figma環境では未確認）:
+    - 実際のPinterestサムネイル（60x60 JPEG）のデコードで約6ms（無料枠10msに収まる）
+    - デコード結果の代表色が、そのピンのPinterest提供dominant_color（例: #000000, #f3f3f3）とほぼ一致 → 正確性を確認
+    - WebPが原本のピンでも60x60版はPinterestが自動でJPEGにトランスコードして配信していることを確認（デコーダのJPEG限定制約とも整合）
+    - `npx wrangler deploy --dry-run` でモジュール分割（jpeg-decoder.js / color-quantize.js の import）がesbuildバンドルされることを確認
+  - 未実施: ユーザーの実Figma環境での動作確認（次にpush→Cloudflare自動デプロイ→Figmaでプラグイン再ビルド後にテストが必要）
+- 別トピック（未着手）: ボードのピン総数を先に表示し、「全部/直近N件/古い方からN件」を選べるようにする機能
+  → Instagram一括ダウンローダー系ツールの調査結果（固定プリセット数+All、newest-firstが暗黙のデフォルト）を踏まえて設計する予定
+  → Pinterestのボードオブジェクトに pin_count フィールドが直接含まれることを確認済み（追加のページネーション無しで総数取得可能）
+- 次: 上記をコミット・push（Cloudflare自動デプロイ）→ ユーザーが実Figmaで色分布バーをテスト → 問題なければ
+  ボードピン総数表示+インポート件数選択機能（2段階UI）の実装に着手

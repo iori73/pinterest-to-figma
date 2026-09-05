@@ -12,8 +12,8 @@ const SETTINGS: Array<{ key: SettingKey; label: string; description: string }> =
   },
   {
     key: 'addDominantColor',
-    label: 'Add dominant color',
-    description: 'Add a small swatch of each image’s dominant color',
+    label: 'Add color distribution',
+    description: "Add a bar under each image showing its top colors' real share of the picture",
   },
   {
     key: 'importFullSize',

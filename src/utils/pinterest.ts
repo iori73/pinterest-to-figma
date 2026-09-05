@@ -33,6 +33,33 @@ function proxied(targetUrl: string): string {
   return `${PINTEREST_PROXY_URL}/?url=${encodeURIComponent(targetUrl)}`;
 }
 
+function proxiedColors(imageUrl: string): string {
+  return `${PINTEREST_PROXY_URL}/?colors=${encodeURIComponent(imageUrl)}`;
+}
+
+export interface ColorSegment {
+  hex: string;
+  percent: number;
+}
+
+// Asks the proxy to decode a tiny thumbnail of this image and return its
+// top-5 dominant colors with each one's real share of the image (see
+// worker/color-quantize.js). Returns null on any failure — a non-JPEG
+// thumbnail, a network error, or the proxy exceeding Cloudflare's free-tier
+// CPU budget — so the caller can fall back to Pinterest's own single
+// dominant_color instead.
+export async function fetchColorDistribution(imageUrl: string): Promise<ColorSegment[] | null> {
+  try {
+    const res = await fetch(proxiedColors(imageUrl));
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!Array.isArray(json?.colors) || json.colors.length === 0) return null;
+    return json.colors;
+  } catch {
+    return null;
+  }
+}
+
 // Figma's plugin sandbox (where this runs) doesn't reliably provide the
 // WHATWG URL class, so this is parsed by hand instead of `new URL(...)`.
 export function parseBoardUrl(input: string): ParsedBoardUrl | null {

@@ -1,7 +1,10 @@
 import { MessageToUI, MessageToPlugin, PinItem, LayoutOptions, BoardImportOptions, MAX_PINS } from './types';
 import { computeCellPosition } from './utils/grid';
-import { fetchAllPins, mapPinsToItems } from './utils/pinterest';
+import { fetchAllPins, mapPinsToItems, fetchColorDistribution, ColorSegment } from './utils/pinterest';
 import { hexToRgb } from './utils/color';
+
+const COLOR_BAR_HEIGHT = 8;
+const COLOR_BAR_GAP = 6;
 
 figma.showUI(__html__, {
   width: 340,
@@ -13,6 +16,37 @@ let cancelled = false;
 
 function send(message: MessageToUI) {
   figma.ui.postMessage(message);
+}
+
+// Renders a horizontal stacked bar of color segments left-to-right, each
+// segment's width proportional to its share of the image. Segments don't
+// necessarily sum to 100% (only the top 5 colors are kept) — the remainder
+// is simply left unfilled rather than padded out with a fabricated "other" color.
+function renderColorBar(
+  parent: FrameNode,
+  segments: ColorSegment[],
+  x: number,
+  y: number,
+  totalWidth: number,
+  labelPrefix: string
+) {
+  let cursorX = x;
+  for (const segment of segments) {
+    const rgb = hexToRgb(segment.hex);
+    if (!rgb) continue;
+    const width = (segment.percent / 100) * totalWidth;
+    if (width < 0.5) continue;
+
+    const bar = figma.createRectangle();
+    bar.name = `${labelPrefix} — ${segment.hex} (${segment.percent}%)`;
+    bar.resize(width, COLOR_BAR_HEIGHT);
+    bar.x = cursorX;
+    bar.y = y;
+    bar.fills = [{ type: 'SOLID', color: rgb }];
+    parent.appendChild(bar);
+
+    cursorX += width;
+  }
 }
 
 async function layoutSection(
@@ -35,14 +69,21 @@ async function layoutSection(
     if (cancelled) break;
     const pin = items[i];
 
+    const wantsColorBar = !!pin.dominantColor;
+
     try {
-      const image = await figma.createImageAsync(pin.imageUrl);
+      const [image, colorSegments] = await Promise.all([
+        figma.createImageAsync(pin.imageUrl),
+        wantsColorBar ? fetchColorDistribution(pin.imageUrl) : Promise.resolve(null),
+      ]);
+
       const cellPosition = computeCellPosition(i, layout, rowHeights);
       const scale = cellPosition.width / pin.width;
       const cellHeight = pin.height * scale;
+      const extraHeight = wantsColorBar ? COLOR_BAR_GAP + COLOR_BAR_HEIGHT : 0;
 
       const row = Math.floor(i / layout.columns);
-      rowHeights[row] = Math.max(rowHeights[row] ?? 0, cellHeight);
+      rowHeights[row] = Math.max(rowHeights[row] ?? 0, cellHeight + extraHeight);
 
       const rect = figma.createRectangle();
       rect.name = pin.title || `Pin ${i + 1}`;
@@ -65,19 +106,12 @@ async function layoutSection(
 
       frame.appendChild(rect);
 
-      if (pin.dominantColor) {
-        const rgb = hexToRgb(pin.dominantColor);
-        if (rgb) {
-          const swatch = figma.createEllipse();
-          swatch.name = `${rect.name} — color`;
-          swatch.resize(20, 20);
-          swatch.x = cellPosition.x + 8;
-          swatch.y = cellPosition.y + cellHeight - 28;
-          swatch.fills = [{ type: 'SOLID', color: rgb }];
-          swatch.strokes = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-          swatch.strokeWeight = 1.5;
-          frame.appendChild(swatch);
-        }
+      if (wantsColorBar) {
+        // Real per-image color proportions when the proxy could compute
+        // them; otherwise fall back to Pinterest's single dominant_color
+        // as one full-width segment, so the bar is never just missing.
+        const segments: ColorSegment[] = colorSegments ?? (pin.dominantColor ? [{ hex: pin.dominantColor, percent: 100 }] : []);
+        renderColorBar(frame, segments, cellPosition.x, cellPosition.y + cellHeight + COLOR_BAR_GAP, cellPosition.width, rect.name);
       }
     } catch {
       // Skip pins whose image failed to load (deleted, private, or unsupported format).
