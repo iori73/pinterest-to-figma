@@ -1,6 +1,6 @@
-import { MessageToUI, MessageToPlugin, PinItem, LayoutOptions, BoardImportOptions, MAX_PINS } from './types';
+import { MessageToUI, MessageToPlugin, PinItem, LayoutOptions, BoardImportOptions, ImportSelection, MAX_PINS } from './types';
 import { computeCellPosition } from './utils/grid';
-import { fetchAllPins, mapPinsToItems, fetchColorDistribution, ColorSegment } from './utils/pinterest';
+import { fetchAllPins, fetchBoardMeta, mapPinsToItems, fetchColorDistribution, ColorSegment } from './utils/pinterest';
 import { hexToRgb } from './utils/color';
 
 const COLOR_BAR_HEIGHT = 8;
@@ -127,11 +127,25 @@ async function layoutSection(
   return frame;
 }
 
-async function importBoard(boardUrl: string, options: BoardImportOptions, layout: LayoutOptions) {
+async function loadBoard(boardUrl: string) {
+  try {
+    const meta = await fetchBoardMeta(boardUrl);
+    send({ type: 'board-loaded', meta });
+  } catch (err) {
+    send({ type: 'error', message: describeError(err) });
+  }
+}
+
+async function importBoard(
+  boardUrl: string,
+  options: BoardImportOptions,
+  layout: LayoutOptions,
+  selection: ImportSelection
+) {
   cancelled = false;
 
   try {
-    const rawPins = await fetchAllPins(boardUrl, {
+    const rawPins = await fetchAllPins(boardUrl, selection, {
       onProgress: (found) => send({ type: 'fetch-progress', found }),
     });
 
@@ -204,8 +218,11 @@ function describeError(err: unknown): string {
 
 figma.ui.onmessage = async (message: MessageToPlugin) => {
   switch (message.type) {
+    case 'load-board':
+      await loadBoard(message.boardUrl);
+      break;
     case 'import-board':
-      await importBoard(message.boardUrl, message.options, message.layout);
+      await importBoard(message.boardUrl, message.options, message.layout, message.selection);
       break;
     case 'cancel-import':
       cancelled = true;

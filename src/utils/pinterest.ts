@@ -1,4 +1,4 @@
-import { BoardImportOptions, PinItem, MAX_PINS } from '../types';
+import { BoardImportOptions, PinItem, MAX_PINS, ImportSelection, BoardMeta } from '../types';
 import { PINTEREST_PROXY_URL } from '../config';
 
 interface RawPinImage {
@@ -23,6 +23,11 @@ interface ParsedBoardUrl {
   username: string;
   slug: string;
   boardUrlPath: string;
+}
+
+interface RawBoard {
+  name?: string;
+  pin_count?: number;
 }
 
 // Figma's plugin sandbox enforces standard browser CORS on fetch(), and
@@ -121,26 +126,40 @@ async function fetchBoardPage(
   return { pins, bookmark: resourceResponse.bookmark ?? null };
 }
 
-export interface FetchPinsCallbacks {
-  onProgress?: (found: number) => void;
-  maxPins?: number;
-}
-
-export async function fetchAllPins(boardUrlInput: string, callbacks: FetchPinsCallbacks = {}): Promise<RawPin[]> {
+function assertProxyConfigured() {
   if (!PINTEREST_PROXY_URL || PINTEREST_PROXY_URL.includes('REPLACE-ME')) {
     throw new Error(
       'No proxy configured. Deploy worker/pinterest-proxy.js (see README.md "Deploy your own proxy"), then set PINTEREST_PROXY_URL in src/config.ts and rebuild.'
     );
   }
+}
 
+function assertParsedBoardUrl(boardUrlInput: string): ParsedBoardUrl {
   const parsed = parseBoardUrl(boardUrlInput);
   if (!parsed) {
-    throw new Error('That doesn\'t look like a Pinterest board URL, e.g. https://www.pinterest.com/username/board-name/ (your country\'s Pinterest domain also works)');
+    throw new Error(
+      "That doesn't look like a Pinterest board URL, e.g. https://www.pinterest.com/username/board-name/ (your country's Pinterest domain also works)"
+    );
   }
+  return parsed;
+}
 
-  const maxPins = callbacks.maxPins ?? MAX_PINS;
+interface InitialBoardState {
+  parsed: ParsedBoardUrl;
+  boardId: string;
+  board: RawBoard;
+  initialPins: RawPin[];
+  initialBookmark: string | null;
+}
+
+// Fetches the board page HTML once and pulls out everything both
+// fetchBoardMeta and fetchAllPins need, so the page is only fetched once
+// even when a caller wants both the pin count and the pins themselves.
+async function loadInitialBoardState(boardUrlInput: string): Promise<InitialBoardState> {
+  assertProxyConfigured();
+  const parsed = assertParsedBoardUrl(boardUrlInput);
+
   const html = await fetchBoardHtml(parsed.hostname, parsed.boardUrlPath);
-
   const propsMatch = html.match(
     /<script id="__PWS_INITIAL_PROPS__" type="application\/json">([\s\S]*?)<\/script>/
   );
@@ -152,7 +171,7 @@ export async function fetchAllPins(boardUrlInput: string, callbacks: FetchPinsCa
   try {
     initialProps = JSON.parse(propsMatch[1]);
   } catch {
-    throw new Error('Could not parse Pinterest\'s board data.');
+    throw new Error("Could not parse Pinterest's board data.");
   }
 
   const state = initialProps?.initialReduxState ?? {};
@@ -161,25 +180,60 @@ export async function fetchAllPins(boardUrlInput: string, callbacks: FetchPinsCa
   if (!boardId) {
     throw new Error('Could not find a board on this page. Double check the URL points to a board, not a single pin.');
   }
+  const board: RawBoard = boards[boardId] ?? {};
 
   const boardFeedResources = state.resources?.BoardFeedResource ?? {};
   const feedKey = Object.keys(boardFeedResources)[0];
   const feedEntry = feedKey ? boardFeedResources[feedKey] : null;
 
-  let pins: RawPin[] = (feedEntry?.data ?? []).filter(
+  const initialPins: RawPin[] = (feedEntry?.data ?? []).filter(
     (pin: RawPin | null): pin is RawPin => !!pin && pin.type === 'pin' && !!pin.images
   );
-  let bookmark: string | null = feedEntry?.bookmark ?? null;
+
+  return { parsed, boardId, board, initialPins, initialBookmark: feedEntry?.bookmark ?? null };
+}
+
+// Fetches just enough to show the user the board's total pin count before
+// they commit to importing anything.
+export async function fetchBoardMeta(boardUrlInput: string): Promise<BoardMeta> {
+  const { parsed, board } = await loadInitialBoardState(boardUrlInput);
+  return {
+    pinCount: typeof board.pin_count === 'number' ? board.pin_count : 0,
+    boardName: board.name || parsed.slug,
+  };
+}
+
+export interface FetchPinsCallbacks {
+  onProgress?: (found: number) => void;
+}
+
+export async function fetchAllPins(
+  boardUrlInput: string,
+  selection: ImportSelection,
+  callbacks: FetchPinsCallbacks = {}
+): Promise<RawPin[]> {
+  const { parsed, boardId, initialPins, initialBookmark } = await loadInitialBoardState(boardUrlInput);
+
+  let pins = initialPins;
+  let bookmark = initialBookmark;
   callbacks.onProgress?.(pins.length);
 
-  while (bookmark && pins.length < maxPins) {
+  // "Newest N" can stop as soon as we have enough — cheaper than a full
+  // scan. "Oldest N" and "All" both need to walk the whole board (capped
+  // at MAX_PINS) since we don't know where the tail is until we get there.
+  const canStopEarly = selection.direction === 'newest' && selection.count != null;
+
+  while (bookmark && pins.length < MAX_PINS) {
+    if (canStopEarly && pins.length >= (selection.count as number)) break;
     const page = await fetchBoardPage(parsed.hostname, boardId, parsed.boardUrlPath, bookmark);
     pins = pins.concat(page.pins);
     bookmark = page.bookmark;
     callbacks.onProgress?.(pins.length);
   }
 
-  return pins.slice(0, maxPins);
+  const bounded = pins.slice(0, MAX_PINS);
+  if (selection.count == null) return bounded; // "All" — direction is irrelevant to the same full set
+  return selection.direction === 'newest' ? bounded.slice(0, selection.count) : bounded.slice(-selection.count);
 }
 
 function pickImage(images: Record<string, RawPinImage>, fullSize: boolean): RawPinImage | null {

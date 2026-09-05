@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MessageToPlugin, MessageToUI, BoardImportOptions, DEFAULT_OPTIONS, DEFAULT_LAYOUT } from './types';
+import {
+  MessageToPlugin,
+  MessageToUI,
+  BoardImportOptions,
+  DEFAULT_OPTIONS,
+  DEFAULT_LAYOUT,
+  DEFAULT_SELECTION,
+  ImportSelection,
+  BoardMeta,
+} from './types';
 
 type SettingKey = keyof BoardImportOptions;
 
@@ -32,17 +41,27 @@ const SETTINGS: Array<{ key: SettingKey; label: string; description: string }> =
   },
 ];
 
+const COUNT_PRESETS = [20, 50, 100];
+
 function App() {
   const [boardUrl, setBoardUrl] = useState('');
   const [options, setOptions] = useState<BoardImportOptions>(DEFAULT_OPTIONS);
+  const [selection, setSelection] = useState<ImportSelection>(DEFAULT_SELECTION);
+  const [boardMeta, setBoardMeta] = useState<BoardMeta | null>(null);
   const [status, setStatus] = useState<string>('');
+  const [loadingBoard, setLoadingBoard] = useState(false);
   const [importing, setImporting] = useState(false);
 
   window.onmessage = (event: MessageEvent) => {
     const message = event.data.pluginMessage as MessageToUI;
     if (!message) return;
 
-    if (message.type === 'fetch-progress') {
+    if (message.type === 'board-loaded') {
+      setLoadingBoard(false);
+      setBoardMeta(message.meta);
+      setSelection(DEFAULT_SELECTION);
+      setStatus('');
+    } else if (message.type === 'fetch-progress') {
       setStatus(`Found ${message.found} pins so far...`);
     } else if (message.type === 'import-progress') {
       setStatus(`Placing ${message.completed} / ${message.total}...`);
@@ -51,6 +70,7 @@ function App() {
       const truncatedNote = message.truncated ? ' (board is large — first pins only)' : '';
       setStatus(`Done: ${message.imported} imported, ${message.failed} failed${truncatedNote}.`);
     } else if (message.type === 'error') {
+      setLoadingBoard(false);
       setImporting(false);
       setStatus(`Error: ${message.message}`);
     }
@@ -60,18 +80,31 @@ function App() {
     setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleImport = () => {
+  const handleLoadBoard = () => {
     if (!boardUrl.trim()) {
       setStatus('Paste a Pinterest board link first.');
       return;
     }
-    setImporting(true);
+    setLoadingBoard(true);
     setStatus('Loading board...');
+    const message: MessageToPlugin = { type: 'load-board', boardUrl: boardUrl.trim() };
+    parent.postMessage({ pluginMessage: message }, '*');
+  };
+
+  const handleChangeBoard = () => {
+    setBoardMeta(null);
+    setStatus('');
+  };
+
+  const handleImport = () => {
+    setImporting(true);
+    setStatus('Starting import...');
     const message: MessageToPlugin = {
       type: 'import-board',
       boardUrl: boardUrl.trim(),
       options,
       layout: DEFAULT_LAYOUT,
+      selection,
     };
     parent.postMessage({ pluginMessage: message }, '*');
   };
@@ -83,23 +116,84 @@ function App() {
     setStatus('Cancelled.');
   };
 
+  const countOptions = boardMeta
+    ? COUNT_PRESETS.filter((n) => n < boardMeta.pinCount)
+    : [];
+
   return (
     <div className="container">
-      <div className="section">
-        <div className="section-title">Insert Pinterest board link</div>
-        <div className="url-row">
-          <input
-            type="text"
-            placeholder="https://pinterest.com/username/board/ (any country domain works)"
-            value={boardUrl}
-            onChange={(e) => setBoardUrl(e.target.value)}
-            disabled={importing}
-          />
-          <button className="btn btn-primary" disabled={importing} onClick={handleImport}>
-            Download
-          </button>
+      {!boardMeta ? (
+        <div className="section">
+          <div className="section-title">Insert Pinterest board link</div>
+          <div className="url-row">
+            <input
+              type="text"
+              placeholder="https://pinterest.com/username/board/ (any country domain works)"
+              value={boardUrl}
+              onChange={(e) => setBoardUrl(e.target.value)}
+              disabled={loadingBoard}
+            />
+            <button className="btn btn-primary" disabled={loadingBoard} onClick={handleLoadBoard}>
+              Load board
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="section">
+          <div className="board-info">
+            <div>
+              <div className="board-name">{boardMeta.boardName}</div>
+              <div className="board-pin-count">~{boardMeta.pinCount} pins</div>
+            </div>
+            <button className="btn-link" disabled={importing} onClick={handleChangeBoard}>
+              Change board
+            </button>
+          </div>
+
+          <div className="field-label">How many to import</div>
+          <div className="chip-row">
+            {countOptions.map((n) => (
+              <button
+                key={n}
+                className={`chip ${selection.count === n ? 'chip-active' : ''}`}
+                disabled={importing}
+                onClick={() => setSelection((s) => ({ ...s, count: n }))}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              className={`chip ${selection.count === null ? 'chip-active' : ''}`}
+              disabled={importing}
+              onClick={() => setSelection((s) => ({ ...s, count: null }))}
+            >
+              All (~{boardMeta.pinCount})
+            </button>
+          </div>
+
+          {selection.count !== null && (
+            <>
+              <div className="field-label">Which ones</div>
+              <div className="chip-row">
+                <button
+                  className={`chip ${selection.direction === 'newest' ? 'chip-active' : ''}`}
+                  disabled={importing}
+                  onClick={() => setSelection((s) => ({ ...s, direction: 'newest' }))}
+                >
+                  Newest
+                </button>
+                <button
+                  className={`chip ${selection.direction === 'oldest' ? 'chip-active' : ''}`}
+                  disabled={importing}
+                  onClick={() => setSelection((s) => ({ ...s, direction: 'oldest' }))}
+                >
+                  Oldest
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="section">
         <div className="section-title-row">
@@ -121,6 +215,12 @@ function App() {
           </label>
         ))}
       </div>
+
+      {boardMeta && !importing && (
+        <button className="btn btn-primary btn-full" onClick={handleImport}>
+          Import
+        </button>
+      )}
 
       {importing && (
         <button className="btn btn-secondary btn-cancel" onClick={handleCancel}>

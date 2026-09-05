@@ -78,3 +78,22 @@
   → Pinterestのボードオブジェクトに pin_count フィールドが直接含まれることを確認済み（追加のページネーション無しで総数取得可能）
 - 次: 上記をコミット・push（Cloudflare自動デプロイ）→ ユーザーが実Figmaで色分布バーをテスト → 問題なければ
   ボードピン総数表示+インポート件数選択機能（2段階UI）の実装に着手
+
+[2026-09-05] ボードピン総数表示 + インポート件数選択機能（2段階UI）を実装
+- フロー変更: 「Insert Pinterest board link」＋「Load board」ボタン → ボード名・ピン数(~N件)を表示 →
+  件数プリセット（ボードサイズに応じて20/50/100のうちボード規模未満のものだけ表示 + All）→
+  件数を指定した場合のみ「Newest / Oldest」の方向選択が出現 → Settings（既存のチェックボックス群）→ Import ボタン
+- メッセージフロー: 新規 'load-board' → 'board-loaded'{meta:{pinCount,boardName}} を追加。
+  既存の 'import-board' に `selection: {direction:'newest'|'oldest', count:number|null}` を追加
+- src/utils/pinterest.ts をリファクタ: ボードHTML取得+__PWS_INITIAL_PROPS__解析を loadInitialBoardState() に共通化し、
+  fetchBoardMeta()（ピン数・ボード名のみ取得、ページネーションなし）と fetchAllPins()（実際の画像取得、selection対応）の両方から使う形に
+  - fetchAllPins: newest+count指定時は目標件数に達し次第ページネーションを打ち切り（早期終了で無駄なリクエストを削減）。
+    oldest指定時はMAX_PINS(500)まで全走査してから配列末尾からslice。count=nullの場合はdirection関係なく同じ全件セット
+- 実機検証（このセッションから実際にデプロイ済みのCloudflare Workerに対してNode経由でエンドツーエンド確認、jp.pinterest.comの実ボード使用）:
+  - fetchBoardMeta: {"pinCount":32,"boardName":"Logo"} を正しく取得
+  - newest(count:10)[0] === all[0]、oldest(count:10)[last] === all[last] が一致することを確認 → 順序ロジックが正しいことを確認
+  - 重要な発見: Pinterestの公式pin_count(32)と、実際にBoardFeedResource経由で取得できる件数(25)が一致しないことがある
+    （非公開/セクション限定ピン等がfeedに含まれない模様）→ UI上は "~32 pins" のようにチルダ付きで表示し、正確な保証ではないことを明示
+- README.md / PUBLISHING.md を更新（フロー変更・Newest/Oldestはボード表示順ベースであり厳密なタイムスタンプではない旨の注記を追加）
+- npx tsc --noEmit / npm run build ともに通過確認済み。実Figma環境での動作は未確認（ユーザー側でのテストが必要）
+- 次: pushしてユーザーに実Figmaでの動作確認を依頼（色分布バー機能とあわせて2つの新機能を一度にテストしてもらう）

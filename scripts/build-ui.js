@@ -166,6 +166,90 @@ const html = `<!DOCTYPE html>
       color: #666;
       margin-top: 12px;
     }
+
+    .btn-cancel {
+      width: 100%;
+    }
+
+    .btn-full {
+      width: 100%;
+    }
+
+    .board-info {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .board-name {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .board-pin-count {
+      color: #888;
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .btn-link {
+      background: none;
+      border: none;
+      color: #18A0FB;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 0;
+      white-space: nowrap;
+    }
+
+    .btn-link:hover {
+      text-decoration: underline;
+    }
+
+    .field-label {
+      color: #888;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin: 12px 0 6px;
+    }
+
+    .chip-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      background: #fff;
+      color: #333;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .chip:hover {
+      border-color: #18A0FB;
+    }
+
+    .chip:disabled {
+      color: #bbb;
+      cursor: not-allowed;
+    }
+
+    .chip-active {
+      background: #18A0FB;
+      color: white;
+      border-color: #18A0FB;
+    }
   </style>
 </head>
 <body>

@@ -41,17 +41,25 @@ else).
 ## What it does
 
 1. Paste a public Pinterest board URL (e.g. `https://www.pinterest.com/username/board-name/`
-   — any country domain like `jp.pinterest.com` works too)
-2. Toggle settings: preserve section structure, add a color-distribution
+   — any country domain like `jp.pinterest.com` works too) and click **Load
+   board** — the plugin shows the board's name and roughly how many pins it has
+2. Choose how many to import: a board-size-aware set of presets (e.g. 20 /
+   50 / 100, whichever are smaller than the board) plus **All**, and — for
+   anything less than all — whether you want the **newest** or **oldest**
+   pins in the board's current order
+3. Toggle settings: preserve section structure, add a color-distribution
    bar under each image, import full-size images, pull in carousel images,
    add a source link back to each pin
-3. Click **Download** — the plugin fetches the board's public pin feed
+4. Click **Import** — the plugin fetches the board's public pin feed
    (Pinterest's own `BoardFeedResource` endpoint, no login required) via
-   your proxy, and places every pin as an image on the canvas, laid out in
-   a fixed-column grid inside one frame per section
+   your proxy, and places the selected pins as images on the canvas, laid
+   out in a fixed-column grid inside one frame per section
 
 Capped at 500 pins per run (`MAX_PINS` in `src/types.ts`) to keep Figma
-responsive on very large boards.
+responsive on very large boards. Pinterest's own reported pin count can be
+a little higher than what's actually fetchable via the feed API (some
+boards have a handful of hidden/section-only pins the feed doesn't return)
+— shown with a `~` for that reason.
 
 ## Development
 
@@ -135,6 +143,10 @@ never just disappears — it's just less detailed for that one image.
 - Depends on a proxy you deploy and keep running — see "Setup" above
 - "Select which sections to import" (from the reference plugin) is not
   implemented — sections are all-or-nothing via "Preserve section structure"
+- "Newest"/"Oldest" reflects the board's current pin order (top-to-bottom,
+  left-to-right as Pinterest returns it), not necessarily exact save
+  timestamps — if pins were manually rearranged on a board, that reordering
+  is what "newest"/"oldest" follows
 - The color-distribution bar can silently fall back to a single color per
   image if the proxy's CPU budget is exceeded — see above
 - If Pinterest changes their page's embedded JSON structure, parsing in

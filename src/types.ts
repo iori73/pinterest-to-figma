@@ -44,8 +44,25 @@ export const DEFAULT_LAYOUT: LayoutOptions = {
 // A safety cap so a huge board can't hang Figma or blow past image-node limits.
 export const MAX_PINS = 500;
 
+// Which pins to import once the board's total pin count is known.
+// count: null means "all" (direction is then irrelevant).
+export type ImportDirection = 'newest' | 'oldest';
+
+export interface ImportSelection {
+  direction: ImportDirection;
+  count: number | null;
+}
+
+export const DEFAULT_SELECTION: ImportSelection = { direction: 'newest', count: null };
+
+export interface BoardMeta {
+  pinCount: number;
+  boardName: string;
+}
+
 // Messages sent from the plugin sandbox (code.ts) to the UI (ui.tsx)
 export type MessageToUI =
+  | { type: 'board-loaded'; meta: BoardMeta }
   | { type: 'fetch-progress'; found: number }
   | { type: 'import-progress'; completed: number; total: number }
   | { type: 'import-complete'; imported: number; failed: number; truncated: boolean }
@@ -53,5 +70,12 @@ export type MessageToUI =
 
 // Messages sent from the UI (ui.tsx) to the plugin sandbox (code.ts)
 export type MessageToPlugin =
-  | { type: 'import-board'; boardUrl: string; options: BoardImportOptions; layout: LayoutOptions }
+  | { type: 'load-board'; boardUrl: string }
+  | {
+      type: 'import-board';
+      boardUrl: string;
+      options: BoardImportOptions;
+      layout: LayoutOptions;
+      selection: ImportSelection;
+    }
   | { type: 'cancel-import' };

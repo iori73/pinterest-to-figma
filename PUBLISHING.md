@@ -72,10 +72,14 @@ image directly onto your canvas, arranged in a clean grid you can
 immediately start designing with.
 
 🧩 Features (all included, no upgrade required):
+• Choose how many to import — see the board's pin count up front, then
+  pick a preset (20/50/100/All, scaled to the board's size) and whether
+  you want the newest or oldest pins
 • Preserve section structure — group pins into separate frames that match
   your board's sections
-• Add dominant color — drop a small color swatch from each image, handy
-  for building a palette from your references
+• Add color distribution — a bar under each image showing its top colors'
+  real share of the picture (not just one swatch), handy for building a
+  palette from your references
 • Import full-size images — use each pin's original resolution instead of
   the default preview size
 • Carousel images — pull in every image from multi-image pins, not just
@@ -85,8 +89,9 @@ immediately start designing with.
 
 📌 How to use:
 1. Open any public Pinterest board in a browser and copy its URL
-2. Paste it into the plugin and toggle the settings you want
-3. Click Download — pins appear on your canvas as a grid, ready to move,
+2. Paste it into the plugin and click Load board
+3. Choose how many pins to import and toggle the settings you want
+4. Click Import — pins appear on your canvas as a grid, ready to move,
    resize, or drop into a moodboard
 
 🔒 Notes:
