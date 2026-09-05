@@ -116,10 +116,6 @@ function App() {
     setStatus('Cancelled.');
   };
 
-  const countOptions = boardMeta
-    ? COUNT_PRESETS.filter((n) => n < boardMeta.pinCount)
-    : [];
-
   return (
     <div className="container">
       {!boardMeta ? (
@@ -152,7 +148,7 @@ function App() {
 
           <div className="field-label">How many to import</div>
           <div className="chip-row">
-            {countOptions.map((n) => (
+            {COUNT_PRESETS.map((n) => (
               <button
                 key={n}
                 className={`chip ${selection.count === n ? 'chip-active' : ''}`}
