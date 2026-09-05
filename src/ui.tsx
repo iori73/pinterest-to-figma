@@ -9,6 +9,7 @@ import {
   DEFAULT_SELECTION,
   ImportSelection,
   BoardMeta,
+  MAX_PINS,
 } from './types';
 
 type SettingKey = keyof BoardImportOptions;
@@ -47,6 +48,8 @@ function App() {
   const [boardUrl, setBoardUrl] = useState('');
   const [options, setOptions] = useState<BoardImportOptions>(DEFAULT_OPTIONS);
   const [selection, setSelection] = useState<ImportSelection>(DEFAULT_SELECTION);
+  const [customActive, setCustomActive] = useState(false);
+  const [customValue, setCustomValue] = useState('');
   const [boardMeta, setBoardMeta] = useState<BoardMeta | null>(null);
   const [status, setStatus] = useState<string>('');
   const [loadingBoard, setLoadingBoard] = useState(false);
@@ -60,6 +63,8 @@ function App() {
       setLoadingBoard(false);
       setBoardMeta(message.meta);
       setSelection(DEFAULT_SELECTION);
+      setCustomActive(false);
+      setCustomValue('');
       setStatus('');
     } else if (message.type === 'fetch-progress') {
       setStatus(`Found ${message.found} pins so far...`);
@@ -95,6 +100,32 @@ function App() {
     setBoardMeta(null);
     setStatus('');
   };
+
+  const applyPreset = (n: number | null) => {
+    setCustomActive(false);
+    setSelection((s) => ({ ...s, count: n }));
+  };
+
+  const activateCustom = () => {
+    setCustomActive(true);
+    const n = parseInt(customValue, 10);
+    if (!isNaN(n) && n > 0) {
+      setSelection((s) => ({ ...s, count: Math.min(n, MAX_PINS) }));
+    }
+  };
+
+  const handleCustomChange = (value: string) => {
+    setCustomValue(value);
+    const n = parseInt(value, 10);
+    if (!isNaN(n) && n > 0) {
+      setSelection((s) => ({ ...s, count: Math.min(n, MAX_PINS) }));
+    }
+  };
+
+  const customIsInvalid = customActive && (() => {
+    const n = parseInt(customValue, 10);
+    return !customValue || isNaN(n) || n <= 0;
+  })();
 
   const handleImport = () => {
     setImporting(true);
@@ -151,21 +182,43 @@ function App() {
             {COUNT_PRESETS.map((n) => (
               <button
                 key={n}
-                className={`chip ${selection.count === n ? 'chip-active' : ''}`}
+                className={`chip ${!customActive && selection.count === n ? 'chip-active' : ''}`}
                 disabled={importing}
-                onClick={() => setSelection((s) => ({ ...s, count: n }))}
+                onClick={() => applyPreset(n)}
               >
                 {n}
               </button>
             ))}
             <button
-              className={`chip ${selection.count === null ? 'chip-active' : ''}`}
+              className={`chip ${!customActive && selection.count === null ? 'chip-active' : ''}`}
               disabled={importing}
-              onClick={() => setSelection((s) => ({ ...s, count: null }))}
+              onClick={() => applyPreset(null)}
             >
               All (~{boardMeta.pinCount})
             </button>
+            <button
+              className={`chip ${customActive ? 'chip-active' : ''}`}
+              disabled={importing}
+              onClick={activateCustom}
+            >
+              Custom
+            </button>
           </div>
+
+          {customActive && (
+            <div className="custom-count-row">
+              <input
+                type="number"
+                min={1}
+                max={MAX_PINS}
+                placeholder={`1–${MAX_PINS}`}
+                value={customValue}
+                disabled={importing}
+                onChange={(e) => handleCustomChange(e.target.value)}
+              />
+              {customIsInvalid && <span className="custom-count-hint">Enter a number between 1 and {MAX_PINS}</span>}
+            </div>
+          )}
 
           {selection.count !== null && (
             <>
@@ -213,7 +266,7 @@ function App() {
       </div>
 
       {boardMeta && !importing && (
-        <button className="btn btn-primary btn-full" onClick={handleImport}>
+        <button className="btn btn-primary btn-full" disabled={customIsInvalid} onClick={handleImport}>
           Import
         </button>
       )}

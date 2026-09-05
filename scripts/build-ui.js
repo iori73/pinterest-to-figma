@@ -88,6 +88,36 @@ const html = `<!DOCTYPE html>
       color: #999;
     }
 
+    input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: inherit;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #18A0FB;
+    }
+
+    input[type="number"]:disabled {
+      background: #f5f5f5;
+      color: #999;
+    }
+
+    .custom-count-row {
+      margin-top: 8px;
+    }
+
+    .custom-count-hint {
+      display: block;
+      color: #d48806;
+      font-size: 10px;
+      margin-top: 4px;
+    }
+
     .setting-row {
       display: flex;
       align-items: flex-start;

@@ -29,7 +29,8 @@ function renderColorBar(
   y: number,
   totalWidth: number,
   labelPrefix: string
-) {
+): RectangleNode[] {
+  const bars: RectangleNode[] = [];
   let cursorX = x;
   for (const segment of segments) {
     const rgb = hexToRgb(segment.hex);
@@ -44,9 +45,11 @@ function renderColorBar(
     bar.y = y;
     bar.fills = [{ type: 'SOLID', color: rgb }];
     parent.appendChild(bar);
+    bars.push(bar);
 
     cursorX += width;
   }
+  return bars;
 }
 
 async function layoutSection(
@@ -111,7 +114,20 @@ async function layoutSection(
         // them; otherwise fall back to Pinterest's single dominant_color
         // as one full-width segment, so the bar is never just missing.
         const segments: ColorSegment[] = colorSegments ?? (pin.dominantColor ? [{ hex: pin.dominantColor, percent: 100 }] : []);
-        renderColorBar(frame, segments, cellPosition.x, cellPosition.y + cellHeight + COLOR_BAR_GAP, cellPosition.width, rect.name);
+        const bars = renderColorBar(
+          frame,
+          segments,
+          cellPosition.x,
+          cellPosition.y + cellHeight + COLOR_BAR_GAP,
+          cellPosition.width,
+          rect.name
+        );
+        // Group the image with its color bar so the layer panel shows one
+        // entry per pin instead of a flat list of image + N bar rectangles.
+        if (bars.length > 0) {
+          const group = figma.group([rect, ...bars], frame);
+          group.name = rect.name;
+        }
       }
     } catch {
       // Skip pins whose image failed to load (deleted, private, or unsupported format).

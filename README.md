@@ -43,10 +43,11 @@ else).
 1. Paste a public Pinterest board URL (e.g. `https://www.pinterest.com/username/board-name/`
    — any country domain like `jp.pinterest.com` works too) and click **Load
    board** — the plugin shows the board's name and roughly how many pins it has
-2. Choose how many to import: a board-size-aware set of presets (e.g. 20 /
-   50 / 100, whichever are smaller than the board) plus **All**, and — for
-   anything less than all — whether you want the **newest** or **oldest**
-   pins in the board's current order
+2. Choose how many to import: presets (20 / 50 / 100 / All — picking one
+   larger than the board just imports everything it has, no error) or
+   **Custom** for an exact number, and — for anything less than all —
+   whether you want the **newest** or **oldest** pins in the board's
+   current order
 3. Toggle settings: preserve section structure, add a color-distribution
    bar under each image, import full-size images, pull in carousel images,
    add a source link back to each pin
@@ -124,7 +125,9 @@ percentage of the image (`worker/color-quantize.js`). The plugin then
 draws that as a stacked horizontal bar under the image — segments don't
 necessarily sum to 100% (only the top 5 are kept; the rest is a long tail
 of minor colors, left unfilled rather than padded with a made-up "other"
-color).
+color). The image and its bar are grouped together as one layer, so the
+layers panel shows one entry per pin rather than the image and every
+color segment as flat siblings.
 
 This only works for JPEG thumbnails (the vast majority of Pinterest
 images — verified against both plain-JPEG and WebP-original pins, since
