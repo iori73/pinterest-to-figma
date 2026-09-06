@@ -29,7 +29,12 @@ small proxy of your own. It's free and takes about 2 minutes:
 3. Copy the worker's URL from **Overview** (looks like
    `https://pinterest-to-figma.<your-subdomain>.workers.dev`).
 4. Paste it into `src/config.ts` as `PINTEREST_PROXY_URL`.
-5. `npm run build`, then reload the plugin in Figma.
+5. Replace the `workers.dev` entry in `manifest.json`'s `networkAccess.allowedDomains`
+   with your own worker's exact hostname (it's scoped tightly to one
+   specific worker rather than `*.workers.dev`, for security — no reason
+   to allow any worker on Cloudflare once the real one is known).
+6. `npm run build`, then fully remove and re-import the plugin in Figma
+   (a plain reload doesn't always pick up `manifest.json` changes).
 
 Free tier is 100,000 requests/day and 10ms CPU time per request — far more
 requests than this plugin will ever use for personal boards, though that

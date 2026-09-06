@@ -18,6 +18,14 @@ logo asset — only functional overlap, which is fine. If you want, I can
 rename it again to something even further from the original; right now it's
 set to **"Pinterest to Figma"**.
 
+(For what it's worth: I couldn't find an official Figma policy that
+proactively rejects lookalike-named plugins — their [Community Guidelines](https://help.figma.com/hc/en-us/articles/360038510573-Figma-Community-Guidelines)
+and [copyright/IP policy](https://www.figma.com/legal/copyright-and-ip-policy/)
+only cover trademark complaints reactively, filed by the rights-holder
+after the fact. So this isn't "Figma will auto-reject you" — it's "don't
+give Figmats/Pinterest a legitimate complaint to file," which staying
+distinct already avoids.)
+
 ## ⚠️ This plugin depends on infrastructure you host — read before publishing
 
 Earlier drafts of this said "no backend, no third-party server." That turned
@@ -125,23 +133,38 @@ with no external payment/credit system, unlike the reference plugin.
 
 **Permissions / network access justification** (shown to reviewers/users)
 ```
-This plugin requests network access to *.workers.dev, which is a
-self-hosted proxy (source included in the plugin's repo, worker/pinterest-
-proxy.js) that relays requests to Pinterest's own public board/pin-feed
-endpoints. It's needed because Figma's plugin sandbox blocks cross-origin
-requests to sites without CORS support, and Pinterest doesn't send CORS
-headers. The proxy only forwards *.pinterest.com URLs and stores nothing.
-Separately, i.pinimg.com is accessed directly to download each pin's image
-onto the canvas.
+This plugin requests network access to one specific Cloudflare Worker
+(source included in this repo, worker/pinterest-proxy.js) that relays
+requests to Pinterest's own public board/pin-feed endpoints and runs
+color analysis on pin thumbnails. It's needed because Figma's plugin
+sandbox blocks cross-origin requests to sites without CORS support, and
+Pinterest doesn't send CORS headers. The proxy only forwards
+*.pinterest.com and *.pinimg.com URLs and stores nothing. Separately,
+i.pinimg.com is accessed directly to download each pin's image onto the
+canvas (that path doesn't go through the proxy — figma.createImageAsync()
+isn't subject to browser CORS).
 ```
+
+**Network access category** (a dropdown in the publish form: Unknown /
+Unrestricted / Restricted / No access): pick **Restricted** — the plugin
+declares specific domains in `manifest.json` rather than requesting
+unrestricted access, which is what resolves the "Unknown" state.
+
+**Privacy policy**: Figma only requires one if the plugin "processes user
+data" (per their [plugin review guidelines](https://help.figma.com/hc/en-us/articles/360039958914-Plugin-and-widget-review-guidelines)).
+This plugin doesn't collect, store, or transmit anything about the person
+using it — it only relays public Pinterest content through your proxy and
+places images on their own canvas. No privacy policy should be required,
+but re-read that guideline yourself before submitting, since "processes
+user data" is Figma's call to interpret, not this draft's.
 
 ## Assets you still need to make
 
 | Asset | Spec | Status |
 |---|---|---|
 | Plugin icon | 128×128 PNG, transparent background | **missing** — do not reuse Pinterest's "P" mark |
-| Cover image | 1920×960 PNG/JPG (Community's required cover ratio) | **missing** |
-| Screenshots (optional but recommended) | 1-3 images showing the Settings panel and an imported grid | **missing** |
+| Cover image | 1920×1080 PNG/JPG or video (Figma's current recommended cover size) | **missing** |
+| Screenshots/carousel (optional but recommended, up to 9) | Show the board-load screen, the count/newest-oldest picker, Settings, and an imported grid with the color-distribution bars | **missing** |
 
 I can draft cover/icon concepts as an Artifact mockup if useful, but actual
 exportable PNGs need to be made in Figma/an image tool — that's a manual
@@ -149,20 +172,24 @@ step for you.
 
 ## Pre-publish checklist
 
-- [ ] `npm run build` succeeds with no errors (confirmed as of this draft)
-- [ ] Deploy `worker/pinterest-proxy.js` to Cloudflare Workers (see
-      README.md "Setup") and set `PINTEREST_PROXY_URL` in `src/config.ts`
-      — **not yet done; `src/config.ts` still has the `REPLACE-ME`
-      placeholder as of this draft**
-- [x] The worker's request/response logic (fetching a real board + its pin
-      feed, adding CORS headers, rejecting non-Pinterest/non-https targets)
-      was verified by simulating it locally in Node against live Pinterest
-      URLs — see `progress.txt`. This is **not** the same as confirming the
-      actual deployed Cloudflare Worker works, which still needs doing.
-- [ ] Manually load via **Plugins → Development → Import plugin from
-      manifest…** and run it against 2-3 real boards (small, large, board
-      with sections, board with carousel pins) using your deployed proxy URL
+- [x] `npm run build` and `npx tsc --noEmit` succeed with no errors
+- [x] `worker/pinterest-proxy.js` deployed to Cloudflare Workers (Git-connected
+      auto-deploy via `wrangler.toml`), `PINTEREST_PROXY_URL` set in
+      `src/config.ts`, and `manifest.json`'s `networkAccess` narrowed to that
+      exact worker hostname
+- [x] Verified end-to-end against real boards (`jp.pinterest.com`), including
+      the board pin-count preview, newest/oldest/custom selection, and the
+      color-distribution bar — see `progress.txt` for what was tested and how
+- [x] Security review completed (see "Security" section below) — the SSRF
+      redirect gap and thumbnail-size-rewrite bypass were both found and
+      fixed, not just theoretical concerns left unaddressed
 - [x] Support link set to the GitHub repo's issues page (see above)
+- [ ] You've personally loaded it via **Plugins → Development → Import
+      plugin from manifest…** and run it against a few more real boards
+      yourself (small, large, board with sections, board with carousel pins)
+      — I've verified the underlying logic and network calls extensively,
+      but haven't been able to run the actual Figma desktop/browser app from
+      here, so this step is still yours to do
 - [ ] Add `icon.png` and cover image, wire them up in the Community publish
       dialog (not part of `manifest.json`)
 - [ ] Re-read the description above and adjust tone/wording to taste
@@ -171,3 +198,51 @@ step for you.
 
 None of the above has been done automatically — publishing is a manual,
 one-way action you should take yourself.
+
+## Security
+
+A focused review of `worker/pinterest-proxy.js`, `manifest.json`, and
+`src/utils/pinterest.ts` on 2026-09-06 found and fixed two real issues
+(not just theoretical) before this was suggested for publishing:
+
+1. **SSRF via unvalidated redirect** — the worker fetched with
+   `redirect: 'follow'`, which only validates the *initial* URL's host. If
+   Pinterest (or pinimg.com) ever redirected off-domain, the worker would
+   silently relay whatever that redirect pointed to — since the worker is
+   a public endpoint with no auth, this could've been abused as an open
+   proxy to arbitrary sites. Fixed: redirects are now followed manually,
+   re-validating the host at every hop, capped at 5 hops. Verified with a
+   mocked cross-host redirect that it's refused before any network call to
+   the disallowed host.
+2. **Thumbnail-size-rewrite bypass** — the color-extraction endpoint forces
+   every image request down to a tiny 60×60 thumbnail (that's what keeps
+   JPEG decoding inside Cloudflare's free-tier 10ms CPU budget). The rewrite
+   used a regex anchored on a single leading slash, which a crafted path
+   like `https://i.pinimg.com//originals/...` (doubled slash) would bypass
+   entirely, forcing the worker to decode a full-resolution image instead —
+   defeating the whole CPU-budget assumption. Fixed: the path is now
+   reconstructed from filtered segments instead of a regex replace, closing
+   that bypass (verified against the doubled- and tripled-slash cases).
+
+Also hardened: `manifest.json`'s `networkAccess` was narrowed from
+`*.workers.dev` to the one specific deployed worker hostname, and the
+client-side `parseBoardUrl()` host check was tightened to match the
+worker's own anchored allowlist (it previously accepted any hostname merely
+*containing* "pinterest." — e.g. `pinterest.evil.com` — which the worker's
+stricter check would still have rejected, but gave a confusing generic
+error instead of a clear "not a Pinterest URL" message).
+
+Lower-priority notes, not fixed (judgment calls, not obvious bugs):
+- The `esbuild` devDependency has a moderate CVE, but it only applies to
+  `esbuild serve`'s dev server, which this project's build never invokes
+  (`npm run build` only does one-shot `--bundle --outfile=`) — not
+  exploitable here, upgrade at your convenience for hygiene.
+- The worker sends a spoofed browser `User-Agent` to Pinterest — not a
+  security vulnerability in this plugin, but worth knowing it's presenting
+  itself as a browser rather than disclosing itself as a bot; Pinterest
+  could choose to rate-limit or block it under their own terms at any time,
+  which would break the plugin for everyone until you noticed and adjusted.
+- The vendored JPEG decoder (`worker/jpeg-decoder.js`, from the
+  battle-tested `jpeg-js` library) has its own built-in resolution/memory
+  guards (100 megapixels / 512MB by default) against malformed or
+  oversized input — not disabled or weakened here.

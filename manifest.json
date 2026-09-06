@@ -9,10 +9,10 @@
   "editorType": ["figma"],
   "networkAccess": {
     "allowedDomains": [
-      "https://*.workers.dev",
+      "https://pinterest-to-figma.iori730002204294.workers.dev",
       "https://i.pinimg.com",
       "https://*.pinimg.com"
     ],
-    "reasoning": "Figma's plugin sandbox enforces browser CORS, and Pinterest's servers don't send CORS headers, so board/pin-feed data is fetched through a small self-hosted Cloudflare Worker proxy (worker/pinterest-proxy.js, deployed under *.workers.dev) that fetches Pinterest server-to-server and adds CORS headers. Once fetched, each pin's image is downloaded directly from Pinterest's CDN (i.pinimg.com) to place it on the canvas — that call doesn't go through fetch()/CORS since it uses figma.createImageAsync()."
+    "reasoning": "Figma's plugin sandbox enforces browser CORS, and Pinterest's servers don't send CORS headers, so board/pin-feed data is fetched through a small self-hosted Cloudflare Worker proxy (worker/pinterest-proxy.js) that fetches Pinterest server-to-server and adds CORS headers. Scoped to this specific deployed worker rather than *.workers.dev, since the exact hostname is known (redeploying to a different worker name requires updating this alongside src/config.ts). Once fetched, each pin's image is downloaded directly from Pinterest's CDN (i.pinimg.com) to place it on the canvas — that call doesn't go through fetch()/CORS since it uses figma.createImageAsync()."
   }
 }

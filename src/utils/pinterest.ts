@@ -74,7 +74,10 @@ export function parseBoardUrl(input: string): ParsedBoardUrl | null {
 
   let hostname = match[1].toLowerCase();
   const pathname = match[2] || '';
-  if (!/pinterest\./i.test(hostname)) return null;
+  // Anchored so "pinterest.evil.com" or "notpinterest.com" can't slip
+  // through as if they were a real Pinterest host — matches the worker's
+  // own allowlist check (worker/pinterest-proxy.js) for consistency.
+  if (!/(^|\.)pinterest\.com$/i.test(hostname)) return null;
 
   // Bare "pinterest.com" (no subdomain) defaults to www; locale subdomains
   // like jp.pinterest.com / fr.pinterest.com are kept as-is, since Pinterest

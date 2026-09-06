@@ -126,3 +126,48 @@
 - npx wrangler deploy --dry-run でバンドル成功も確認
 - README.md / src/code.ts のコメントも「合計100%にならない場合がある」という説明から「常に100%になり画像幅いっぱいに埋まる」という説明に修正
 - 次: push（Cloudflare自動デプロイ、worker側の変更あり）→ ユーザーが実Figmaで確認
+
+[2026-09-06] Community公開準備: 要件リサーチ + セキュリティ監査
+- ユーザーから「公開したい。概要文等の草案」「コードのセキュリティ懸念を調査」
+  「Cloudflareは完全無料か？他人が使う場合は？」の3点を依頼された
+- Figma公式ドキュメントをリサーチ（サブエージェント経由）し、PUBLISHING.mdの記載を訂正:
+  - カバー画像サイズは1920x960ではなく1920x1080が正しい仕様だった（誤りを訂正）
+  - プライバシーポリシーは「ユーザーデータを処理する場合のみ」必須。本プラグインは
+    ユーザーのデータを収集・保存しないため不要と判断（根拠を明記）
+  - ネットワークアクセスの公開フォームには Unknown/Unrestricted/Restricted/No access の
+    選択があり、manifest.jsonでドメインを限定していれば "Restricted" を選ぶべきと判明
+  - プラグイン名の類似性について、Figmaに事前審査での自動拒否ルールは見当たらず、
+    権利者からの事後クレームベースの対応のみ（引き続き名前を変えている判断は妥当）
+- コードのセキュリティ監査を実施し、2件の実害あるバグを発見・修正:
+  1. worker/pinterest-proxy.js: `redirect: 'follow'` が初回URLのホストしか検証しておらず、
+     Pinterest/pinimg.com がクロスホストにリダイレクトした場合、無検証で中継してしまう
+     SSRF相当の脆弱性を発見。認証なしの公開エンドポイントであるため、公開後は誰でも
+     オープンプロキシとして悪用できる状態だった。
+     → `fetchWithValidatedRedirects()` を実装し、リダイレクトを手動フォロー（最大5ホップ）、
+       各ホップでホストを再検証するよう修正。モックしたクロスホストリダイレクトで
+       「悪意のあるホストへは1回もfetchが飛ばないこと」を確認済み
+  2. worker/pinterest-proxy.js の toTinyThumbnailUrl(): サムネイルサイズを60x60に強制する
+     正規表現 `/^\/[^/]+\//` が、先頭を二重スラッシュにしたパス（例: "//originals/..."）で
+     マッチせず素通りしてしまうバイパスを発見。無料枠のCPU予算(10ms)は「常に極小画像しか
+     デコードしない」前提に依存しているため、これはCPU予算の前提を崩す実害あるバグだった
+     → セグメント分割+フィルタによる再構築方式に変更し修正。二重・三重スラッシュのバイパス試行を
+       実際にnodeで再現・修正確認済み
+  - 副次的な硬化: manifest.json の networkAccess を `*.workers.dev` から実際にデプロイ済みの
+    ワーカーの完全なホスト名に限定。src/utils/pinterest.ts の parseBoardUrl() のホスト検証も
+    workerと同じ厳格な正規表現（`(^|\.)pinterest\.com$`）に統一（従来は "pinterest." を含むだけで
+    通過してしまっていた。workerの検証で最終的にブロックされるため実害はなかったが一貫性のため修正）
+  - 低優先度の指摘（修正はしていない、判断コメントのみ）: esbuild devDependencyのCVEは
+    `esbuild serve` 専用でこのプロジェクトの使い方（--bundle --outfile のワンショット実行）
+    では該当しないため様子見。UserAgent偽装はセキュリティ脆弱性ではなくPinterest利用規約上の
+    リスク（レート制限/ブロックの可能性）として明記。jpeg-jsデコーダは元からmaxResolutionInMP/
+    maxMemoryUsageInMBのガードを持っている
+  - README.md の Setup手順に「manifest.jsonのnetworkAccessも自分のworkerホスト名に書き換える」
+    ステップを追加（従来はワイルドカードだったため不要だったが、絞り込んだことで必要になった）
+  - PUBLISHING.md にSecurityセクションを新設し、上記の発見・修正内容を記録として残した
+- Cloudflareホスティングの無料性について: 無料枠は1日10万リクエスト・リクエストあたり
+  CPU時間10ms。公開後は「自分のWorkerを他のユーザー全員が共有して叩く」構造になるため、
+  個人利用の範囲では確実に無料だが、公開後に想定外に利用者が増えた場合は自分のWorkerの
+  無料枠を他人の利用が消費する（＝完全に自分だけの専有ではない）点をユーザーに説明した
+- npx tsc --noEmit / npm run build / npx wrangler deploy --dry-run すべて通過確認済み
+- 次: push（Cloudflare自動デプロイ、workerのセキュリティ修正を含む）→
+  ユーザーがmanifest.json変更を反映するため完全に削除→再インポート→実Figmaで動作確認

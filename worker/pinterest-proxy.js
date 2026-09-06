@@ -52,6 +52,29 @@ function errorResponse(message, status) {
   return new Response(message, { status, headers: corsHeaders() });
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+// fetch() with redirect:'follow' only validates the *initial* URL's host —
+// if the target ever redirected elsewhere, we'd silently relay whatever
+// that redirect pointed to, turning this into an open proxy to arbitrary
+// sites. This re-validates the host at every hop instead, and refuses to
+// follow a redirect anywhere off-allowlist.
+async function fetchWithValidatedRedirects(initialUrl, isAllowedHost, options, maxRedirects = 5) {
+  let currentUrl = initialUrl;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (currentUrl.protocol !== 'https:' || !isAllowedHost(currentUrl.hostname)) {
+      throw new Error(`refused to fetch disallowed host: ${currentUrl.hostname}`);
+    }
+    const response = await fetch(currentUrl.toString(), { ...options, redirect: 'manual' });
+    if (!REDIRECT_STATUSES.has(response.status)) return response;
+
+    const location = response.headers.get('Location');
+    if (!location) throw new Error('redirect response missing Location header');
+    currentUrl = new URL(location, currentUrl);
+  }
+  throw new Error('too many redirects');
+}
+
 async function handlePinterestRelay(target) {
   let targetUrl;
   try {
@@ -66,9 +89,13 @@ async function handlePinterestRelay(target) {
 
   let upstream;
   try {
-    upstream = await fetch(targetUrl.toString(), { headers: BROWSER_HEADERS, redirect: 'follow' });
+    upstream = await fetchWithValidatedRedirects(
+      targetUrl,
+      (hostname) => ALLOWED_PINTEREST_HOST.test(hostname),
+      { headers: BROWSER_HEADERS }
+    );
   } catch (err) {
-    return errorResponse(`Upstream fetch failed: ${err}`, 502);
+    return errorResponse(`Upstream fetch failed: ${err.message || err}`, 502);
   }
 
   const body = await upstream.arrayBuffer();
@@ -80,10 +107,16 @@ async function handlePinterestRelay(target) {
 
 // Rewrites a Pinterest image URL's size segment (e.g. "736x", "originals")
 // to a tiny fixed size, so decoding stays cheap enough for the Workers free
-// tier's CPU budget.
+// tier's CPU budget. Reconstructs the path from filtered segments rather
+// than a regex replace — a regex anchored on a single leading slash can be
+// bypassed by a crafted path like "//originals/..." (doubled slash), which
+// would leave the size segment un-rewritten and let a caller force us to
+// decode a full-resolution image instead of a tiny thumbnail.
 function toTinyThumbnailUrl(targetUrl) {
   const rewritten = new URL(targetUrl.toString());
-  rewritten.pathname = rewritten.pathname.replace(/^\/[^/]+\//, '/60x60/');
+  const segments = rewritten.pathname.split('/').filter(Boolean);
+  segments[0] = '60x60';
+  rewritten.pathname = '/' + segments.join('/');
   return rewritten;
 }
 
@@ -103,9 +136,13 @@ async function handleColorExtraction(target) {
 
   let upstream;
   try {
-    upstream = await fetch(thumbUrl.toString(), { headers: BROWSER_HEADERS, redirect: 'follow' });
+    upstream = await fetchWithValidatedRedirects(
+      thumbUrl,
+      (hostname) => ALLOWED_IMAGE_HOST.test(hostname),
+      { headers: BROWSER_HEADERS }
+    );
   } catch (err) {
-    return errorResponse(`Upstream fetch failed: ${err}`, 502);
+    return errorResponse(`Upstream fetch failed: ${err.message || err}`, 502);
   }
   if (!upstream.ok) {
     return errorResponse(`Upstream returned HTTP ${upstream.status}`, 502);
