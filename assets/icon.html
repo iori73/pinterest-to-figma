@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 128px;
+    height: 128px;
+    overflow: hidden;
+    background: transparent;
+  }
+</style>
+</head>
+<body>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3FB6FF"/>
+      <stop offset="100%" stop-color="#0D6FCC"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <!-- moodboard grid: 3x3 photo tiles of varying size/opacity, evoking an imported board -->
+  <g>
+    <rect x="26" y="26" width="34" height="34" rx="7" fill="#ffffff" opacity="0.95"/>
+    <rect x="66" y="26" width="36" height="20" rx="6" fill="#ffffff" opacity="0.55"/>
+    <rect x="66" y="52" width="36" height="24" rx="6" fill="#ffffff" opacity="0.85"/>
+    <rect x="26" y="66" width="34" height="36" rx="7" fill="#ffffff" opacity="0.7"/>
+    <rect x="66" y="82" width="36" height="20" rx="6" fill="#ffffff" opacity="0.95"/>
+  </g>
+</svg>
+</body>
+</html>

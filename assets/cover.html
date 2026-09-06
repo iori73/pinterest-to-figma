@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+    background: linear-gradient(135deg, #EEF6FF 0%, #F7FAFC 55%, #FFF9F0 100%);
+  }
+
+  .wrap {
+    width: 1920px;
+    height: 1080px;
+    display: flex;
+    align-items: center;
+    padding: 0 120px;
+  }
+
+  .left {
+    flex: 0 0 640px;
+  }
+
+  .badge {
+    display: inline-block;
+    background: #E6F9EE;
+    color: #12875E;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 8px 20px;
+    border-radius: 999px;
+    margin-bottom: 28px;
+  }
+
+  .title {
+    font-size: 76px;
+    font-weight: 800;
+    color: #1A1A1A;
+    line-height: 1.08;
+    margin-bottom: 24px;
+  }
+
+  .title .accent {
+    color: #0D6FCC;
+  }
+
+  .tagline {
+    font-size: 30px;
+    color: #4A5560;
+    line-height: 1.5;
+    max-width: 560px;
+  }
+
+  .board {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 130px;
+    gap: 18px;
+    position: relative;
+  }
+
+  .tile {
+    border-radius: 16px;
+    box-shadow: 0 18px 40px rgba(20, 40, 70, 0.14);
+  }
+
+  .t1 { grid-row: span 2; background: linear-gradient(160deg, #FFC98B, #FF8A65); }
+  .t2 { background: linear-gradient(160deg, #8ED1FC, #3FA9F5); }
+  .t3 { grid-row: span 2; background: linear-gradient(160deg, #C9A7FF, #8E6BE5); }
+  .t4 { background: linear-gradient(160deg, #FFB1C6, #F76E93); }
+  .t5 { grid-row: span 2; background: linear-gradient(160deg, #9BE8C4, #43C08A); }
+  .t6 { background: linear-gradient(160deg, #FFE08A, #FFC93C); }
+  .t7 { background: linear-gradient(160deg, #A8C8FF, #6B93F5); }
+
+  .colorbar {
+    position: absolute;
+    left: 0;
+    bottom: -14px;
+    width: calc(25% - 18px);
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+  }
+  .colorbar span:nth-child(1) { background: #FF8A65; flex: 4; }
+  .colorbar span:nth-child(2) { background: #FFC93C; flex: 2; }
+  .colorbar span:nth-child(3) { background: #43C08A; flex: 3; }
+  .colorbar span:nth-child(4) { background: #6B93F5; flex: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="left">
+    <div class="badge">FREE &middot; NO CREDITS</div>
+    <div class="title">Pinterest<br/>to <span class="accent">Figma</span></div>
+    <div class="tagline">Paste a public Pinterest board link and get every pin laid out on your canvas as a grid — unlimited, no paywall.</div>
+  </div>
+  <div class="board">
+    <div class="tile t1"></div>
+    <div class="tile t2"></div>
+    <div class="tile t3"></div>
+    <div class="tile t4"></div>
+    <div class="tile t5" style="position:relative;">
+      <div class="colorbar"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="tile t6"></div>
+    <div class="tile t7"></div>
+  </div>
+</div>
+</body>
+</html>

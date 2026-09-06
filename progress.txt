@@ -171,3 +171,19 @@
 - npx tsc --noEmit / npm run build / npx wrangler deploy --dry-run すべて通過確認済み
 - 次: push（Cloudflare自動デプロイ、workerのセキュリティ修正を含む）→
   ユーザーがmanifest.json変更を反映するため完全に削除→再インポート→実Figmaで動作確認
+
+[2026-09-06] アイコン/カバー画像のドラフトを作成
+- ユーザーから「サムネ、アイコン作った？」と聞かれ、未着手だったため実際に作成
+- assets/icon.html（128x128、青グラデーションの角丸スクエア＋ムードボード風タイルのモチーフ、
+  Pinterestロゴ不使用）と assets/cover.html（1920x1080、タイトル・タグライン・FREEバッジ・
+  インポート結果を模したカラフルなグリッド＋カラー分布バーのヒント）をHTML/CSS/SVGで作成
+- playwright MCP（chrome-devtoolsは別プロセスと競合しmcp__chrome-devtools__new_pageが失敗したため
+  playwrightに切り替え）でローカルHTTPサーバー経由（file://はplaywrightでブロックされていたため）
+  それぞれのHTMLを正確なピクセルサイズ（128x128 / 1920x1080）でスクリーンショットし
+  assets/icon.png / assets/cover.png として保存。file コマンドで実寸を確認済み
+- .playwright-mcp/ の作業ログは.gitignoreに追加し非コミット
+- PUBLISHING.md の Assets セクションを「missing」から「draft ready」に更新。
+  アイコンの角丸(28px)がFigmaのアップロードダイアログ側の自動角丸と二重にならないか
+  ユーザー自身の確認が必要な旨を明記（必要なら1行変更で角無し版に再生成可能）
+- 次: ユーザーがドラフトのデザイン（コピー・配色・レイアウト）を確認 → OKなら
+  Community公開ダイアログでアップロード、NGなら該当のhtmlソースを調整して再生成

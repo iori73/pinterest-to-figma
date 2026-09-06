@@ -158,13 +158,22 @@ places images on their own canvas. No privacy policy should be required,
 but re-read that guideline yourself before submitting, since "processes
 user data" is Figma's call to interpret, not this draft's.
 
-## Assets you still need to make
+## Assets
 
 | Asset | Spec | Status |
 |---|---|---|
-| Plugin icon | 128×128 PNG, transparent background | **missing** — do not reuse Pinterest's "P" mark |
-| Cover image | 1920×1080 PNG/JPG or video (Figma's current recommended cover size) | **missing** |
-| Screenshots/carousel (optional but recommended, up to 9) | Show the board-load screen, the count/newest-oldest picker, Settings, and an imported grid with the color-distribution bars | **missing** |
+| Plugin icon | 128×128 PNG | **draft ready**: `assets/icon.png` (source: `assets/icon.html`) — rounded-square blue gradient with a moodboard-tile motif, no Pinterest branding |
+| Cover image | 1920×1080 PNG/JPG or video | **draft ready**: `assets/cover.png` (source: `assets/cover.html`) — title, tagline, FREE badge, and a mock imported grid with a color-distribution bar hint |
+| Screenshots/carousel (optional but recommended, up to 9) | Show the board-load screen, the count/newest-oldest picker, Settings, and an imported grid with the color-distribution bars | **missing** — needs real screenshots from inside Figma, which only you can take |
+
+Both drafts are generated (HTML → screenshot at the exact pixel size), not
+hand-picked stock art — look them over and tell me if you want the copy,
+colors, or layout changed; the `.html` sources are easy to tweak and
+re-render. One thing to double-check yourself at upload time: `icon.png`
+has its corners pre-rounded (28px radius) — if Figma's upload dialog also
+rounds icons automatically, that could look like a double-rounded corner.
+If so, say so and I'll regenerate a sharp-cornered version (one line change
+in `assets/icon.html`).
 
 I can draft cover/icon concepts as an Artifact mockup if useful, but actual
 exportable PNGs need to be made in Figma/an image tool — that's a manual
@@ -190,8 +199,9 @@ step for you.
       — I've verified the underlying logic and network calls extensively,
       but haven't been able to run the actual Figma desktop/browser app from
       here, so this step is still yours to do
-- [ ] Add `icon.png` and cover image, wire them up in the Community publish
-      dialog (not part of `manifest.json`)
+- [x] `assets/icon.png` and `assets/cover.png` drafted — review them, and
+      wire them up in the Community publish dialog when ready (they're not
+      part of `manifest.json`, so nothing auto-applies this)
 - [ ] Re-read the description above and adjust tone/wording to taste
 - [ ] Only then: Figma menu → Plugins → Development → your plugin →
       Publish
