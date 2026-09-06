@@ -120,14 +120,14 @@ field directly — instead, for each pin, the proxy fetches a tiny 60×60
 thumbnail of the image (rewriting whatever size the pin's URL originally
 pointed to), decodes it with a vendored copy of
 [jpeg-js](https://github.com/jpeg-js/jpeg-js) (`worker/jpeg-decoder.js`),
-and buckets its pixels into the top 5 colors with each one's *real*
-percentage of the image (`worker/color-quantize.js`). The plugin then
-draws that as a stacked horizontal bar under the image — segments don't
-necessarily sum to 100% (only the top 5 are kept; the rest is a long tail
-of minor colors, left unfilled rather than padded with a made-up "other"
-color). The image and its bar are grouped together as one layer, so the
-layers panel shows one entry per pin rather than the image and every
-color segment as flat siblings.
+and buckets its pixels into the top 5 colors (`worker/color-quantize.js`).
+Each color's percentage is its share *among those top 5* (not of the whole
+image — there's always some long tail of minor colors beyond the top 5
+that isn't represented at all), normalized to sum to exactly 100 so the
+bar the plugin draws under each image always spans its full width
+edge-to-edge, rather than leaving a gap. The image and its bar are grouped
+together as one layer, so the layers panel shows one entry per pin rather
+than the image and every color segment as flat siblings.
 
 This only works for JPEG thumbnails (the vast majority of Pinterest
 images — verified against both plain-JPEG and WebP-original pins, since

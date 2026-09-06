@@ -19,9 +19,9 @@ function send(message: MessageToUI) {
 }
 
 // Renders a horizontal stacked bar of color segments left-to-right, each
-// segment's width proportional to its share of the image. Segments don't
-// necessarily sum to 100% (only the top 5 colors are kept) — the remainder
-// is simply left unfilled rather than padded out with a fabricated "other" color.
+// segment's width proportional to its share among the top colors (see
+// worker/color-quantize.js — percentages are normalized to sum to 100 there),
+// so the bar always spans the full image width edge-to-edge.
 function renderColorBar(
   parent: FrameNode,
   segments: ColorSegment[],

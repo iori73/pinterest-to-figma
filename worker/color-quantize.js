@@ -5,6 +5,12 @@
 // per channel), count pixels per bucket, then take the top K buckets and
 // report each one's *actual* average color (not just the bucket's
 // rounded corner) so the swatches look natural rather than banded.
+//
+// Percentages are each kept color's share *among the top K* (not of the
+// whole image), and always sum to exactly 100 — so a bar rendered from
+// these segments fills the full width edge-to-edge, matching a normal
+// stacked distribution bar, rather than leaving a gap for the untracked
+// long tail of minor colors beyond the top K.
 
 const BUCKET_BITS = 5; // 32 levels per channel => cheap, still visually distinct
 
@@ -43,10 +49,21 @@ export function quantizeTopColors(rgba, width, height, topK = 5) {
 
   const sorted = [...buckets.values()].sort((a, b) => b.count - a.count);
   const top = sorted.slice(0, topK);
-  const countedPixels = sorted.reduce((sum, b) => sum + b.count, 0);
+  const topPixelCount = top.reduce((sum, b) => sum + b.count, 0);
+  if (topPixelCount === 0) return [];
 
-  return top.map((bucket) => ({
+  const colors = top.map((bucket) => ({
     hex: `#${toHex(bucket.rSum / bucket.count)}${toHex(bucket.gSum / bucket.count)}${toHex(bucket.bSum / bucket.count)}`,
-    percent: Math.round((bucket.count / countedPixels) * 1000) / 10, // one decimal place
+    percent: Math.round((bucket.count / topPixelCount) * 1000) / 10, // one decimal place
   }));
+
+  // Rounding each percent independently can leave the total a hair off 100
+  // (e.g. 99.9 or 100.1), which would show as a visible gap or overflow in
+  // the rendered bar. Nudge the largest segment (colors[0], since `top` is
+  // sorted by count descending) to absorb that rounding error.
+  const roundedSum = colors.reduce((sum, c) => sum + c.percent, 0);
+  const diff = Math.round((100 - roundedSum) * 10) / 10;
+  if (colors.length > 0 && diff !== 0) colors[0].percent = Math.round((colors[0].percent + diff) * 10) / 10;
+
+  return colors;
 }
