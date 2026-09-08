@@ -1,12 +1,13 @@
 {
   "name": "Pinterest to Figma",
-  "id": "pinterest-to-figma-plugin",
+  "id": "1678794201557473584",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
   "capabilities": [],
   "enableProposedApi": false,
   "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": [
       "https://pinterest-to-figma.iori730002204294.workers.dev",
